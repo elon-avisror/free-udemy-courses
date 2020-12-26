@@ -4,7 +4,8 @@ import SubscriberYoSamples from './puppeteer/SubscriberYoSamples';
 
 const options: LaunchOptions = {
     headless: false,
-    args: ['--window-size=1920,1080']
+    args: ['--window-size=1920,1080'],
+    timeout: 999999  // almost disable timeout
 };
 const debug: boolean = true;
 

@@ -1,35 +1,35 @@
 import * as puppeteer from 'puppeteer';
-import Helper from '../utils/Helper';
+import Helper from '../util/Helper';
 import Subscribable from './Subscribable';
 
 export default abstract class Subscriber implements Subscribable {
     private options: puppeteer.LaunchOptions;
     private browser: puppeteer.Browser;
-    private page: puppeteer.Page;
+    private pages: puppeteer.Page[];
     private debug: boolean;
 
     async subscribe(options: puppeteer.LaunchOptions, debug?: boolean): Promise<boolean> {
         this.options = options;
         this.debug = debug;
 
-        await this.init(options);
+        await this.start();
         let response: boolean = false;
         try {
             response = await this.fetch();
         } catch (e) {
             this.printError(e);
         }
-        this.stop();
+        await this.stop();
 
         return response;
     }
 
-    async init(options: puppeteer.LaunchOptions): Promise<void> {
-        this.browser = await puppeteer.launch(options);
-        this.page = await this.browser.newPage();
+    async start(): Promise<void> {
+        this.browser = await puppeteer.launch(this.options);
+        this.pages = await this.browser.pages();
 
         if (this.debug)
-            console.debug(this.constructor.name + ' has initialized...');
+            console.debug(this.constructor.name + ' has been started...');
     }
 
     abstract fetch(): Promise<boolean>;
@@ -38,11 +38,16 @@ export default abstract class Subscriber implements Subscribable {
         await this.browser.close();
 
         if (this.debug)
-            console.debug(this.constructor.name + ' has closed...');
+            console.debug(this.constructor.name + ' has been closed...');
     }
 
-    getPage(): puppeteer.Page {
-        return this.page;
+    getPage(index: number): puppeteer.Page {
+        return index > -1 && index < this.pages.length ? this.pages[index] : null;
+    }
+
+    async newPage(): Promise<puppeteer.Page> {
+        await this.browser.newPage();
+        return this.pages[this.pages.length - 1];
     }
 
     private printError = (error: any): void => {

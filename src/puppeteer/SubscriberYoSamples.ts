@@ -1,7 +1,7 @@
 import * as puppeteer from 'puppeteer';
 import Subscriber from './Subscriber';
-import SubscriberUtils from '../utils/Helper';
-import Helper from '../utils/Helper';
+import SubscriberUtils from '../util/Helper';
+import Helper from '../util/Helper';
 
 export default class SubscriberYoSamples extends Subscriber {
     // Selectors
@@ -15,7 +15,7 @@ export default class SubscriberYoSamples extends Subscriber {
 
         // Go-to free source and record that session
         try {
-            const response: puppeteer.Response = await this.getPage().goto(this.WEBSITE);
+            const response: puppeteer.Response = await this.getPage(0).goto(this.WEBSITE);
             if (!response.ok()) {
                 console.error(`${Helper.defaultErrorMessage}. The response is:  ${response}`);
                 return;
@@ -27,7 +27,7 @@ export default class SubscriberYoSamples extends Subscriber {
 
         // Handling the advertising on the very beginning
         try {
-            await this.getPage().$eval(
+            await this.getPage(0).$eval(
                 this.ADVETISING_CLOSE_BUTTON,
                 (button: HTMLButtonElement) => button !== null ? button.click() : console.log('No advertisings this time!')
             );
@@ -40,7 +40,7 @@ export default class SubscriberYoSamples extends Subscriber {
         const date: Date = new Date();
         const fileName: string = SubscriberUtils.getFileName(date);
         try {
-            await this.getPage().screenshot({ path: `${__dirname}/../img/${fileName}.png` });
+            await this.getPage(0).screenshot({ path: `${__dirname}/../images/${fileName}.png` });
         } catch (e) {
             console.error(`Unable to have a screenshot of this ${fileName} session.`);
             throw e;
@@ -48,14 +48,17 @@ export default class SubscriberYoSamples extends Subscriber {
 
         try {
             // TODO: handle that!
-            // const numberOfCourses: number = await this.getPage().$eval(this.COURSE_LIST, (list: HTMLUListElement) => list.children.length);
+            // const numberOfCourses: number = await this.getPage(0).$eval(this.COURSE_LIST, (list: HTMLUListElement) => list.children.length);
             // for (let i = 0; i < numberOfCourses-1; i++) {
-            //     const course: HTMLLIElement = await this.getPage().$eval(this.COURSE_LIST, (list: HTMLUListElement) => list.children[i]);
+            //     const course: HTMLLIElement = await this.getPage(0).$eval(this.COURSE_LIST, (list: HTMLUListElement) => list.children[i]);
             //     console.log(course);
             // }
 
             // Getting the list of today's courses
-            const courses: HTMLCollection = await this.getPage().$eval(this.COURSE_LIST, (list: HTMLUListElement) => list.children);
+            const res = await this.getPage(0).evaluate(() => document.querySelector(this.COURSE_LIST));
+            console.log(res);
+
+            const courses: HTMLCollection = await this.getPage(0).$eval(this.COURSE_LIST, (list: HTMLUListElement) => list.children);
             console.log(courses);
             for (let i = 0; i < courses.length; i++) {
                 // For each course
