@@ -47,31 +47,26 @@ export default class SubscriberYoSamples extends Subscriber {
         }
 
         try {
-            // TODO: handle that!
-            // const numberOfCourses: number = await this.getPage(0).$eval(this.COURSE_LIST, (list: HTMLUListElement) => list.children.length);
-            // for (let i = 0; i < numberOfCourses-1; i++) {
-            //     const course: HTMLLIElement = await this.getPage(0).$eval(this.COURSE_LIST, (list: HTMLUListElement) => list.children[i]);
-            //     console.log(course);
-            // }
-
             // Getting the list of today's courses
-            const res = await this.getPage(0).evaluate(() => document.querySelector(this.COURSE_LIST));
-            console.log(res);
+            const links: string[] = await this.getPage(0).$$eval(this.COURSE_LIST, (courses: any[]) => {
+                const links: string[] = [];
+                for (let i = 0; i < courses[0].children.length; i++) {
+                    links.push(courses[0].children[i]?.children[0]?.children[0]?.href);
+                }
+                return links;
+            });
+            console.log(links);
 
-            const courses: HTMLCollection = await this.getPage(0).$eval(this.COURSE_LIST, (list: HTMLUListElement) => list.children);
-            console.log(courses);
-            for (let i = 0; i < courses.length; i++) {
-                // For each course
-                const course = courses[i];
-                console.log(course);
-                // Click on the link (open new tab)
+            // Filter with subscribed courses. Then, for each course
 
-                // Check if we can add it to cart (then we did'nt have it).
+            // Click on the link (open new tab)
 
-                // If we didn't have it, click on button "Add to cart"
+            // Check if we can add it to cart (then we did'nt have it).
 
-                // Close tab
-            }
+            // If we didn't have it, click on button "Add to cart"
+
+            // Close tab
+
             console.log("DEVELOPED!");
         } catch (e) {
             console.error('Cannot manipulate courses list as expected.');
