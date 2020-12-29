@@ -1,8 +1,8 @@
 import * as puppeteer from 'puppeteer';
 import Helper from '../util/Helper';
-import Subscribable from './Subscribable';
+import SubscriberAble from './SubscriberAble';
 
-export default abstract class Subscriber implements Subscribable {
+export default abstract class Subscriber implements SubscriberAble {
     private options: puppeteer.LaunchOptions;
     private browser: puppeteer.Browser;
     private pages: puppeteer.Page[];
@@ -46,11 +46,15 @@ export default abstract class Subscriber implements Subscribable {
     }
 
     async newPage(): Promise<puppeteer.Page> {
-        await this.browser.newPage();
-        return this.pages[this.pages.length - 1];
+        return this.pages[this.pages.push(await this.browser.newPage()) - 1];
     }
 
-    private printError = (error: any): void => {
+    async closePage(): Promise<puppeteer.Page> {
+        await this.pages[this.pages.length - 1].close();
+        return this.pages.pop();
+    }
+
+    private printError(error: any): void {
         if (error instanceof puppeteer.errors.TimeoutError)
             console.error(`${Helper.timeoutErrorMessage}\n${error}`);
         else {

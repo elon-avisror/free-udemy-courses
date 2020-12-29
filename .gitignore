@@ -1,4 +1,6 @@
+.env
 .vscode/
 dist/
 node_modules/
+src/json/
 src/images/*

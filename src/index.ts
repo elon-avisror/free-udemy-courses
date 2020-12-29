@@ -1,5 +1,5 @@
 import { LaunchOptions } from 'puppeteer';
-import Subscribable from './puppeteer/Subscribable';
+import SubscriberAble from './puppeteer/SubscriberAble';
 import SubscriberYoSamples from './puppeteer/SubscriberYoSamples';
 
 const options: LaunchOptions = {
@@ -8,12 +8,14 @@ const options: LaunchOptions = {
 };
 const debug: boolean = true;
 
-const subscriber: Subscribable = new SubscriberYoSamples();
+const subscriber: SubscriberAble = new SubscriberYoSamples();
 
-(async () => {
-    const response: boolean = await subscriber.subscribe(options, debug);
-    if (response)
-        console.info('Success!!!')
-    else
-        console.error('Failed!!!')
-})();
+if (require.main === module) {
+    (async () => {
+        const response: boolean = await subscriber.subscribe(options, debug);
+        if (response)
+            console.info('Success!!!')
+        else
+            console.error('Failed!!!')
+    })();
+}
