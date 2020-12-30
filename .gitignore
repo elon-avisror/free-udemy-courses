@@ -2,5 +2,5 @@
 .vscode/
 dist/
 node_modules/
-src/json/subscribed.json
+src/db
 src/images/*

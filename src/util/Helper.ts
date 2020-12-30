@@ -4,7 +4,7 @@ export default class Helper {
 
     static getFileName(date: Date): string {
         // Getting this local date (format: mm/dd/yyyy)
-        const today: string = date.toUTCString();
+        const today: string = date.toLocaleDateString();
 
         // Change this date to format: dd-mm-yyyy
         const fields: string[] = today.split('/');
