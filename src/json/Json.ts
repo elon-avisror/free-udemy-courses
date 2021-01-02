@@ -1,6 +1,5 @@
 import * as fs from 'fs/promises';
 import * as dotenv from 'dotenv';
-import JsonAble from './JsonAble';
 
 dotenv.config();
 const {
@@ -8,6 +7,12 @@ const {
     JSON_PATH,
     JSON_FILE
 } = process.env;
+
+export interface JsonAble {
+    read(): Promise<string[]>;
+    save(courses: string[]): Promise<boolean>;
+    clear(): Promise<void>;
+};
 
 export default class Json implements JsonAble {
     private subscribed: string[] = [];
@@ -18,7 +23,7 @@ export default class Json implements JsonAble {
             await fs.access(this.jsonPath);
             this.subscribed = JSON.parse((await fs.readFile(this.jsonPath)).toString());
         } catch (e) {
-            console.error('Cannot read data from DB');
+            console.error('Cannot read data from DB.');
             throw e;
         }
         return this.subscribed;
@@ -28,10 +33,20 @@ export default class Json implements JsonAble {
         try {
             await fs.writeFile(this.jsonPath, JSON.stringify([...this.subscribed, ...courses]));
         } catch (e) {
-            console.error('Cannot save data to DB');
+            console.error('Cannot save data to DB.');
             throw e;
         }
         this.subscribed = [...this.subscribed, ...courses];
         return !!this.subscribed;
+    }
+
+    async clear(): Promise<void> {
+        try {
+            const subscribed: string[] = [...new Set(await this.read())];
+            await this.save(subscribed);
+        } catch (e) {
+            console.error('Cannot clear data on DB.');
+            throw e;
+        }
     }
 };

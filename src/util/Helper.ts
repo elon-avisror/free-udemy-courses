@@ -1,8 +1,6 @@
 export default class Helper {
-    static readonly defaultErrorMessage: string = 'Something went wrong!';
-    static readonly timeoutErrorMessage: string = 'There was an timeout!';
-
-    static getFileName(date: Date): string {
+    static getToday(): string {
+        const date: Date = new Date();
         // Getting this local date (format: mm/dd/yyyy)
         const today: string = date.toLocaleDateString();
 
