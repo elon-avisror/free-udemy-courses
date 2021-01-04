@@ -1,7 +1,7 @@
 {
   "name": "free-udemy-courses",
   "version": "1.0.0",
-  "description": "TODO",
+  "description": "Subscriber service for getting the newest courses of udemy for free from a third-party sources",
   "main": "./dist/index.js",
   "scripts": {
     "start": "tsnd --respawn ./src/index.ts",

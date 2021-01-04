@@ -8,12 +8,6 @@ const {
     JSON_FILE
 } = process.env;
 
-export interface JsonAble {
-    read(): Promise<string[]>;
-    save(courses: string[]): Promise<boolean>;
-    clear(): Promise<void>;
-};
-
 export default class Json implements JsonAble {
     private subscribed: string[] = [];
     private readonly jsonPath: string = `${PROJECT_ROOT_PATH}/${JSON_PATH}/${JSON_FILE}`;
@@ -49,4 +43,10 @@ export default class Json implements JsonAble {
             throw e;
         }
     }
+};
+
+export interface JsonAble {
+    read(): Promise<string[]>;
+    save(courses: string[]): Promise<boolean>;
+    clear(): Promise<void>;
 };

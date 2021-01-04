@@ -1,15 +1,12 @@
 import * as puppeteer from 'puppeteer';
 import * as dotenv from 'dotenv';
-import Json from '../json/Json';
+import Json from '../base/Json';
 import Folder from '../util/Folder';
+import { LaunchOptions } from 'puppeteer';
 import { ErrorMessage } from '../enum/ErrorMessage';
 import { Selector } from '../enum/Selector';
 import { Button } from '../enum/Button';
-import { LaunchOptions } from 'puppeteer';
-
-export interface SubscribeAble {
-    run(options: LaunchOptions, debug?: boolean): Promise<boolean>;
-};
+import { Status } from '../enum/Status';
 
 dotenv.config();
 const {
@@ -125,10 +122,10 @@ export default abstract class Subscriber implements SubscribeAble {
                 }
 
                 // Making a screenshot of this new course that was added to cart
+                let courseStatus: Status;
                 try {
                     const splitedUrl: string[] = newCourse.split('/');
                     const courseName: string = splitedUrl[splitedUrl.length - 2];
-
                     switch (buttonName) {
                         case Button.enrollNow:
                             await this.getPage(2).screenshot({ path: `${folder}/${Folder.enrolled}/${courseName}.png` });
@@ -146,6 +143,7 @@ export default abstract class Subscriber implements SubscribeAble {
                             );
                             // Wait for Udemy subscription approvement
                             await this.getPage(2).waitForSelector(Selector.enrolledWindow, { visible: true });
+                            courseStatus = Status.subscribed;
                             break;
                         case Button.addToCart:
                             await this.getPage(2).screenshot({ path: `${folder}/${Folder.added}/${courseName}.png` });
@@ -157,10 +155,12 @@ export default abstract class Subscriber implements SubscribeAble {
                             );
                             // Wait for Udemy subscription approvement
                             await this.getPage(2).waitForSelector(Selector.addedToCartPopup, { visible: true });
+                            courseStatus = Status.added;
                             break;
                         case Button.goToCourse:
                         case Button.buyNow:
                             await this.getPage(2).screenshot({ path: `${folder}/${Folder.exists}/${courseName}.png` });
+                            courseStatus = Status.exists;
                             // Do nothing about this
                             break;
                         default:
@@ -175,7 +175,7 @@ export default abstract class Subscriber implements SubscribeAble {
                 // Close tab
                 this.processed.push(newCourse);
                 if (this.debug)
-                    console.debug(`course ${newCourse} was added.`);
+                    console.debug(`course ${newCourse} ${courseStatus}.`);
                 await this.closePage();
             }
             status = await this.json.save(this.processed);
@@ -215,4 +215,8 @@ export default abstract class Subscriber implements SubscribeAble {
             console.error(`${ErrorMessage.default}\n${error}`);
         }
     }
+};
+
+export interface SubscribeAble {
+    run(options: LaunchOptions, debug?: boolean): Promise<boolean>;
 };
