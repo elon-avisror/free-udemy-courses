@@ -1,4 +1,4 @@
-import * as fs from 'fs/promises';
+import { promises } from 'fs';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
@@ -14,8 +14,8 @@ export default class Json implements JsonAble {
 
     async read(): Promise<string[]> {
         try {
-            await fs.access(this.jsonPath);
-            this.subscribed = JSON.parse((await fs.readFile(this.jsonPath)).toString());
+            await promises.access(this.jsonPath);
+            this.subscribed = JSON.parse((await promises.readFile(this.jsonPath)).toString());
         } catch (e) {
             console.error('Cannot read data from DB.');
             throw e;
@@ -25,7 +25,7 @@ export default class Json implements JsonAble {
 
     async save(courses: string[]): Promise<boolean> {
         try {
-            await fs.writeFile(this.jsonPath, JSON.stringify([...this.subscribed, ...courses]));
+            await promises.writeFile(this.jsonPath, JSON.stringify([...this.subscribed, ...courses]));
         } catch (e) {
             console.error('Cannot save data to DB.');
             throw e;

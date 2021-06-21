@@ -1,4 +1,4 @@
-import * as fs from 'fs/promises';
+import { promises } from 'fs';
 import Helper from './Helper';
 
 export interface FolderAble {
@@ -15,14 +15,14 @@ export default class Folder implements FolderAble {
         const today: string = Helper.getToday();
         const folder: string = `${__dirname}/../${Folder.images}/${today}`;
         try {
-            await fs.access(folder);
+            await promises.access(folder);
         } catch (e) {
             console.log(`Folder for today ${today} is not exists, so have been created.`);
             try {
-                await fs.mkdir(folder);
-                await fs.mkdir(`${folder}/${Folder.added}`);
-                await fs.mkdir(`${folder}/${Folder.enrolled}`);
-                await fs.mkdir(`${folder}/${Folder.exists}`);
+                await promises.mkdir(folder);
+                await promises.mkdir(`${folder}/${Folder.added}`);
+                await promises.mkdir(`${folder}/${Folder.enrolled}`);
+                await promises.mkdir(`${folder}/${Folder.exists}`);
             } catch (e) {
                 console.error(`Could not create today ${today} folder.`);
                 throw e;
