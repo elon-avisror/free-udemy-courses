@@ -104,21 +104,12 @@ export default abstract class Subscriber implements SubscribeAble {
                 try {
                     // Try type 1
                     buttonName = await this.getPage(2).$eval(
-                        Selector.courseSubmitButton1,
+                        Selector.courseSubmitButton,
                         (button: HTMLButtonElement) => button ? button.innerText : null
                     );
-                    buttonSelector = Selector.courseSubmitButton1;
+                    buttonSelector = Selector.courseSubmitButton;
                 } catch (e) {
-                    try {
-                        // Try type 2
-                        buttonName = await this.getPage(2).$eval(
-                            Selector.courseSubmitButton2,
-                            (button: HTMLButtonElement) => button ? button.innerText : null
-                        );
-                        buttonSelector = Selector.courseSubmitButton2;
-                    } catch (e) {
-                        console.warn(`There is a new type of course submit button, see it in ${newCourse}`);
-                    }
+                    console.warn(`There is a new type of course submit button, see it in ${newCourse}`);
                 }
 
                 // Making a screenshot of this new course that was added to cart
