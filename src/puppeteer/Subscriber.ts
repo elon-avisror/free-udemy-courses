@@ -1,12 +1,9 @@
-import * as puppeteer from 'puppeteer';
 import * as dotenv from 'dotenv';
-import Json from '../base/Json';
-import Folder from '../util/Folder';
-import { LaunchOptions } from 'puppeteer';
-import { ErrorMessage } from '../enum/ErrorMessage';
-import { Selector } from '../enum/Selector';
-import { Button } from '../enum/Button';
-import { Status } from '../enum/Status';
+import * as puppeteer from 'puppeteer';
+import ImageFolderHandler, { FolderHandler } from '../util/ImageFolderHandler';
+import Fetcher from './Fetcher';
+import { PuppeteerLauncher, LauncherErrorMessage } from './Launcher';
+import JsonFileHandler, { FileHandler } from '../util/JsonFileHandler';
 
 dotenv.config();
 const {
@@ -14,87 +11,101 @@ const {
     PASSWORD
 } = process.env;
 
-export default abstract class Subscriber implements SubscribeAble {
-    private options: puppeteer.LaunchOptions;
-    private browser: puppeteer.Browser;
-    private pages: puppeteer.Page[];
+export default interface Subscriber {
+    run(options: puppeteer.LaunchOptions): Promise<void>;
+};
+
+export class UdemySubscriber implements Subscriber {
+    private readonly loginPageUrl: string = 'https://www.udemy.com/join/login-popup/';
+    private processedCourses: string[] = [];
+    private launcher: PuppeteerLauncher;
+    private fetchers: Fetcher[];
+    private readonly jsonFileHandler: FileHandler = new JsonFileHandler();
+    private readonly imageFolderHandler: FolderHandler = new ImageFolderHandler();
     private debug: boolean;
-    // Source
-    private readonly udemy: string = 'https://www.udemy.com/join/login-popup/';
-    // JSON
-    private readonly json = new Json();
-    private readonly folderer = new Folder();
-    private processed: string[] = [];
 
-    async run(options: puppeteer.LaunchOptions, debug?: boolean): Promise<boolean> {
-        this.options = options;
+    constructor(fetchers: Fetcher[], debug?: boolean) {
+        this.fetchers = fetchers;
         this.debug = debug;
-
-        let response: boolean = false;
-
-        await this.start();
-        try {
-            const courses: string[] = await this.login() && await this.fetch();
-            response = await this.subscribe(courses);
-        } catch (e) {
-            this.printError(e);
-        }
-        await this.stop();
-
-        return response;
     }
 
-    private async start(): Promise<void> {
-        this.browser = await puppeteer.launch(this.options);
-        this.pages = await this.browser.pages();
+    async run(options: puppeteer.LaunchOptions): Promise<void> {
+        this.launcher = new PuppeteerLauncher(options);
 
+        await this.launcher.start();
         if (this.debug)
             console.debug(this.constructor.name + ' has been started...');
+
+        try {
+            await this.login();
+
+            let response: boolean = false;
+            for (const fetcher of this.fetchers) {
+                const page: puppeteer.Page = await this.launcher.newPage();
+                const courses: string[] = await fetcher.goto(page) && await fetcher.fetch(page);
+
+                // NOTE: it is already goes to Udemy and loged-in to the system
+                response = await this.subscribe(courses);
+                const message = response ? 'Succeeded' : 'Failed';
+                console.log(`The ${this.constructor.name} ended with status ${message}.`);
+            }
+        } catch (e) {
+            if (e instanceof puppeteer.errors.TimeoutError)
+                console.error(`${LauncherErrorMessage.timeout}\n${e}`);
+            else {
+                console.error(`${LauncherErrorMessage.default}\n${e}`);
+            }
+        }
+
+        await this.launcher.stop();
+        if (this.debug)
+            console.debug(this.constructor.name + ' has been closed...');
     }
 
-    private async login(): Promise<boolean> {
+    async login(): Promise<boolean> {
         let status: boolean = false;
         try {
-            const response = await this.pages[0].goto(this.udemy);
+            const loginPage = await this.launcher.newPage();
+            const response = await loginPage.goto(this.loginPageUrl)
             if (!response?.ok()) {
-                console.error(`${ErrorMessage.default}. The response is:  ${response}`);
+                this.printError(await response.text());
             }
 
-            await this.pages[0].$eval(Selector.emailInput, (input: HTMLInputElement, value: string) => input.value = value, EMAIL);
-            await this.pages[0].$eval(Selector.passwordInput, (input: HTMLInputElement, value: string) => input.value = value, PASSWORD);
-            await this.pages[0].$eval(Selector.loginSubmitButton, (button: HTMLButtonElement) => button !== null ? button.click() : console.error('Cannot find "Login" button'));
+            await loginPage.$eval(SubscriberSelector.emailInput, (input: HTMLInputElement, value: string) => input.value = value, EMAIL);
+            await loginPage.$eval(SubscriberSelector.passwordInput, (input: HTMLInputElement, value: string) => input.value = value, PASSWORD);
+            await loginPage.$eval(SubscriberSelector.loginSubmitButton, (button: HTMLButtonElement) => button !== null ? button.click() : console.error('Cannot find "Login" button'));
             status = true;
 
             if (this.debug) {
                 console.debug(this.constructor.name + ' has been successfuly logged-in to udemy...');
             }
         } catch (e) {
-            console.error(`Cannot getting to ${this.udemy} website.`);
+            console.error(`Cannot login to udemy at ${this.loginPageUrl} page.`);
             throw e;
         }
         return status;
     }
 
-    abstract fetch(): Promise<string[]>;
-
-    private async subscribe(courses: string[]): Promise<boolean> {
+    async subscribe(courses: string[]): Promise<boolean> {
         let status: boolean = false;
         try {
             // Create a directory for today pictures
-            const folder: string = await this.folderer.create();
-            const subscribed: string[] = await this.json.read();
+            const folder: string = await this.imageFolderHandler.create();
+            const subscribedCourses: string[] = await this.jsonFileHandler.read();
 
             // Filtering with subscribed courses
             const newCourses: Set<string> = new Set(courses.filter(function (course) {
                 return this.indexOf(course) < 0;
-            }, subscribed));
+            }, subscribedCourses));
 
             // Then, for each new course
             for (const newCourse of newCourses) {
+                const coursePage = await this.launcher.newPage();
+
                 // Go to this course link (with free coupon)
-                const response: puppeteer.Response = await (await this.newPage()).goto(newCourse, { waitUntil: 'networkidle2' });
+                const response: puppeteer.Response = await coursePage.goto(newCourse, { waitUntil: 'networkidle2' });
                 if (!response?.ok()) {
-                    console.error(`${ErrorMessage.default}. The response is:  ${response}.`);
+                    this.printError(await response.text());
                     return;
                 }
 
@@ -103,55 +114,55 @@ export default abstract class Subscriber implements SubscribeAble {
                 let buttonSelector: string;
                 try {
                     // Try type 1
-                    buttonName = await this.getPage(2).$eval(
-                        Selector.courseSubmitButton,
+                    buttonName = await coursePage.$eval(
+                        SubscriberSelector.courseSubmitButton,
                         (button: HTMLButtonElement) => button ? button.innerText : null
                     );
-                    buttonSelector = Selector.courseSubmitButton;
+                    buttonSelector = SubscriberSelector.courseSubmitButton;
                 } catch (e) {
                     console.warn(`There is a new type of course submit button, see it in ${newCourse}`);
                 }
 
                 // Making a screenshot of this new course that was added to cart
-                let courseStatus: Status;
+                let courseStatus: SubscriberStatusText;
                 try {
                     const splitedUrl: string[] = newCourse.split('/');
                     const courseName: string = splitedUrl[splitedUrl.length - 2];
                     switch (buttonName) {
-                        case Button.enrollNow:
-                            await this.getPage(2).screenshot({ path: `${folder}/${Folder.enrolled}/${courseName}.png` });
-                            await this.getPage(2).waitForSelector(buttonSelector);
+                        case SubscriberButtonText.enrollNow:
+                            await coursePage.screenshot({ path: `${folder}/${ImageFolderHandler.enrolled}/${courseName}.png` });
+                            await coursePage.waitForSelector(buttonSelector);
                             // Wait for "Enroll now" button to show
-                            await this.getPage(2).$eval(
+                            await coursePage.$eval(
                                 buttonSelector,
                                 (button: HTMLButtonElement) => button ? button.click() : console.error('There is no "Enroll now" button!')
                             );
                             // Wait for "Enroll now" submit button to show
-                            await this.getPage(2).waitForSelector(Selector.enrollNowSubmitButton);
-                            await this.getPage(2).$eval(
-                                Selector.enrollNowSubmitButton,
+                            await coursePage.waitForSelector(SubscriberSelector.enrollNowSubmitButton);
+                            await coursePage.$eval(
+                                SubscriberSelector.enrollNowSubmitButton,
                                 (button: HTMLButtonElement) => button ? button.click() : console.error('There is no "Enroll now" submit button!')
                             );
                             // Wait for Udemy subscription approvement
-                            await this.getPage(2).waitForSelector(Selector.enrolledWindow, { visible: true });
-                            courseStatus = Status.subscribed;
+                            await coursePage.waitForSelector(SubscriberSelector.enrolledWindow, { visible: true });
+                            courseStatus = SubscriberStatusText.subscribed;
                             break;
-                        case Button.addToCart:
-                            await this.getPage(2).screenshot({ path: `${folder}/${Folder.added}/${courseName}.png` });
+                        case SubscriberButtonText.addToCart:
+                            await coursePage.screenshot({ path: `${folder}/${ImageFolderHandler.added}/${courseName}.png` });
                             // Wait for "Add to cart" button to show
-                            await this.getPage(2).waitForSelector(Selector.addToCartButton);
-                            await this.getPage(2).$eval(
-                                Selector.addToCartButton,
+                            await coursePage.waitForSelector(SubscriberSelector.addToCartButton);
+                            await coursePage.$eval(
+                                SubscriberSelector.addToCartButton,
                                 (button: HTMLButtonElement) => button ? button.click() : console.error('There is no "Add to cart" button!')
                             );
                             // Wait for Udemy subscription approvement
-                            await this.getPage(2).waitForSelector(Selector.addedToCartPopup, { visible: true });
-                            courseStatus = Status.added;
+                            await coursePage.waitForSelector(SubscriberSelector.addedToCartPopup, { visible: true });
+                            courseStatus = SubscriberStatusText.added;
                             break;
-                        case Button.goToCourse:
-                        case Button.buyNow:
-                            await this.getPage(2).screenshot({ path: `${folder}/${Folder.exists}/${courseName}.png` });
-                            courseStatus = Status.exists;
+                        case SubscriberButtonText.goToCourse:
+                        case SubscriberButtonText.buyNow:
+                            await coursePage.screenshot({ path: `${folder}/${ImageFolderHandler.exists}/${courseName}.png` });
+                            courseStatus = SubscriberStatusText.exists;
                             // Do nothing about this
                             break;
                         default:
@@ -164,50 +175,48 @@ export default abstract class Subscriber implements SubscribeAble {
                 }
 
                 // Close tab
-                this.processed.push(newCourse);
+                this.processedCourses.push(newCourse);
                 if (this.debug)
                     console.debug(`course ${newCourse} ${courseStatus}.`);
-                await this.closePage();
+                await this.launcher.closePage();
             }
-            status = await this.json.save(this.processed);
+            status = await this.jsonFileHandler.save(this.processedCourses);
         } catch (e) {
             // Save what we have achived so far
-            await this.json.save(this.processed);
+            await this.jsonFileHandler.save(this.processedCourses);
             console.error('Cannot manipulate courses list as expected.');
             throw e;
         }
         return status;
     }
 
-    private async stop(): Promise<void> {
-        await this.browser.close();
-
-        if (this.debug)
-            console.debug(this.constructor.name + ' has been closed...');
-    }
-
-    getPage(index: number): puppeteer.Page {
-        return index > -1 && index < this.pages.length ? this.pages[index] : null;
-    }
-
-    async newPage(): Promise<puppeteer.Page> {
-        return this.pages[this.pages.push(await this.browser.newPage()) - 1];
-    }
-
-    private async closePage(): Promise<puppeteer.Page> {
-        await this.pages[this.pages.length - 1].close();
-        return this.pages.pop();
-    }
-
-    private printError(error: any): void {
-        if (error instanceof puppeteer.errors.TimeoutError)
-            console.error(`${ErrorMessage.timeout}\n${error}`);
-        else {
-            console.error(`${ErrorMessage.default}\n${error}`);
-        }
+    private printError(message: string): void {
+        console.error(`${LauncherErrorMessage.default}.\nThe response is: ${message}`);
     }
 };
 
-export interface SubscribeAble {
-    run(options: LaunchOptions, debug?: boolean): Promise<boolean>;
+export enum SubscriberSelector {
+    // Login Page
+    emailInput = '#email--1',
+    passwordInput = '#id_password',
+    loginSubmitButton = '#submit-id-submit',
+    // Subscribe Pages
+    courseSubmitButton = '#udemy > div.main-content-wrapper > div.main-content > div.paid-course-landing-page__container > div.sidebar-container-position-manager > div > div > div > div.course-landing-page_slider-menu-container > div > div.slider-menu--show-transactional-cta-container--1Xckm > div.slider-menu--cta-button--3eii3 > div > button',
+    enrollNowSubmitButton = '#udemy > div.main-content-wrapper > div.main-content > div > div > div > div.container.styles--shopping-container--A136v > form > div.styles--shopping-lists--3qgap > div > div:nth-child(5) > div > div > div.styles--button-slider--2IGed.styles--checkout-slider--1ry4z > div.styles--complete-payment-container--3Jazs > button',
+    enrolledWindow = '#udemy > div.main-content-wrapper > div.main-content',
+    addToCartButton = '#udemy > div.main-content-wrapper > div.main-content > div.paid-course-landing-page__container > div.top-container.dark-background > div > div > div.course-landing-page__main-content.course-landing-page__purchase-section__main.dark-background-inner-text-container > div > div > div > div > div.buy-box-main > div > div.buy-box__element.buy-box__element--add-to-cart-button > div > button',
+    addedToCartPopup = '#udemy > div.modal--dialog-container--3rrJR > div > div.udlite-modal.modal--dialog--16df1.modal--default-size--cbk60'
+};
+
+export enum SubscriberButtonText {
+    enrollNow = 'Enroll now',
+    addToCart = 'Add to cart',
+    goToCourse = 'Go to course',
+    buyNow = 'Buy now'
+};
+
+export enum SubscriberStatusText {
+    subscribed = 'subscribed successfuly',
+    added = 'was added to cart',
+    exists = 'already exists'
 };

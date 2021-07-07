@@ -1,4 +1,4 @@
-export default class Helper {
+export default class TimeHelper {
     static getToday(): string {
         const date: Date = new Date();
         // Getting this local date (format: mm/dd/yyyy)

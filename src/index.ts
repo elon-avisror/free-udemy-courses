@@ -1,34 +1,28 @@
 import { LaunchOptions } from 'puppeteer';
 import { CronJob } from 'cron';
-import Subscriber from './puppeteer/Subscriber';
-import YoSamplesSubscriber from './puppeteer/YoSamplesSubscriber';
+import Subscriber, { UdemySubscriber } from './puppeteer/Subscriber';
+import Fetcher from './puppeteer/Fetcher';
+import YoSamplesFetcher from './puppeteer/YoSamplesFetcher';
 
+// Puppeteer Launcher options and debug mode
 const options: LaunchOptions = {
     headless: false,
     args: ['--no-sandbox', /*'--window-size=1920,1080'*/]
 };
-
 const debug: boolean = true;
 
-// TODO: read from implemented subscribers directory
-function getSubscribers(): Subscriber[] {
-    return [new YoSamplesSubscriber()];
-}
-
-const subscribers: Subscriber[] = getSubscribers();
+// Fetchers & Subscriber initialization
+const fetchers: Fetcher[] = [new YoSamplesFetcher()];
+const subscriber: Subscriber = new UdemySubscriber(fetchers, debug);
 
 // const job = new CronJob('0 4 23 * * *', () => {
 //     const date: Date = new Date();
 //     console.info(`Cron job for date ${date} has started...`);
 
 if (require.main === module) {
-    for (const subscriber of subscribers) {
-        (async () => {
-            const response: boolean = await subscriber.run(options, debug);
-            const msg = response ? 'Succeeded' : 'Failed';
-            console.log(`The ${subscriber.constructor.name} ended with status ${msg}.`);
-        })();
-    }
+    (async () => {
+        await subscriber.run(options);
+    })();
 }
 
 // }, null, true, "America/Los_Angeles");

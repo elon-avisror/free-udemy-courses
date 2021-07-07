@@ -1,7 +1,6 @@
-.env
 .vscode/
-dist/
-*.log
 node_modules/
-src/db
+dist/
 src/images/*
+*.log
+.env
