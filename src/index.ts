@@ -3,6 +3,7 @@ import { CronJob } from 'cron';
 import Subscriber, { UdemySubscriber } from './puppeteer/Subscriber';
 import Fetcher from './puppeteer/Fetcher';
 import YoSamplesFetcher from './puppeteer/YoSamplesFetcher';
+import CourseVaniaFetcher from './puppeteer/CourseVaniaFetcher';
 
 // Puppeteer Launcher options and debug mode
 const options: LaunchOptions = {
@@ -12,7 +13,7 @@ const options: LaunchOptions = {
 const debug: boolean = true;
 
 // Fetchers & Subscriber initialization
-const fetchers: Fetcher[] = [new YoSamplesFetcher()];
+const fetchers: Fetcher[] = [new YoSamplesFetcher(), new CourseVaniaFetcher()];
 const subscriber: Subscriber = new UdemySubscriber(fetchers, debug);
 
 // const job = new CronJob('0 4 23 * * *', () => {

@@ -1,13 +1,13 @@
-import * as puppeteer from 'puppeteer';
-import Helper from '../util/TimeHelper';
-import Fetcher from './Fetcher';
+import { Page } from 'puppeteer';
+import TimeHelper from '../util/TimeHelper';
+import PuppeteerFetcher from './Fetcher';
 
-export default class YoSamplesFetcher extends Fetcher {
+export default class YoSamplesFetcher extends PuppeteerFetcher {
     constructor() {
         super('https://yofreesamples.com/courses/free-discounted-udemy-courses-list/');
     }
 
-    async fetch(page: puppeteer.Page): Promise<string[]> {
+    async fetch(page: Page): Promise<string[]> {
         // Handling the advertising on the very beginning
         try {
             await page.$eval(
@@ -30,7 +30,7 @@ export default class YoSamplesFetcher extends Fetcher {
                 return links;
             });
             if (!courses) {
-                console.warn(`There are no new courses for today ${Helper.getToday()}.`)
+                console.warn(`There are no new courses for today ${TimeHelper.getToday()}.`)
                 return [];
             }
         } catch (e) {
